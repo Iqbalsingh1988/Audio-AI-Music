@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const maxDuration = 60; // Max duration for Vercel execution
+
 export async function POST(req: NextRequest) {
   try {
     const { prompt } = await req.json();
 
     if (!prompt) {
       return NextResponse.json(
-        { error: "Prompt likhna zaroori hai" },
+        { error: "Prompt is required" },
         { status: 400 }
       );
     }
@@ -19,7 +21,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Direct Standard Inference Endpoint (Supported for MusicGen)
+    // Direct Inference call to Hugging Face MusicGen
     const response = await fetch(
       "https://api-inference.huggingface.co/models/facebook/musicgen-small",
       {
@@ -27,28 +29,41 @@ export async function POST(req: NextRequest) {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
           "x-wait-for-model": "true",
+          "use_cache": "false"
         },
         method: "POST",
-        body: JSON.stringify({ inputs: prompt }),
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: {
+            max_new_tokens: 256 // Generation duration control for faster response
+          }
+        }),
       }
     );
 
     if (!response.ok) {
       const errorText = await response.text();
+      // Handle model loading state explicitly
+      if (response.status === 503) {
+        return NextResponse.json(
+          { error: "Model load ho raha hai, 15 sec baad 'Generate' dabaein." },
+          { status: 503 }
+        );
+      }
       return NextResponse.json(
-        { error: `Hugging Face Error: ${errorText}` },
+        { error: `API Error: ${errorText}` },
         { status: response.status }
       );
     }
 
     const audioBuffer = await response.arrayBuffer();
     const base64Audio = Buffer.from(audioBuffer).toString("base64");
-    const audioUrl = `data:audio/flac;base64,${base64Audio}`;
+    const audioUrl = `data:audio/wav;base64,${base64Audio}`;
 
     return NextResponse.json({ audioUrl });
   } catch (error: any) {
     return NextResponse.json(
-      { error: "Model warm-up ho raha hai, 10 second baad dubara try karein." },
+      { error: error.message || "Generation timeout" },
       { status: 500 }
     );
   }
