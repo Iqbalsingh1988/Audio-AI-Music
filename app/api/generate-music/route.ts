@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export const maxDuration = 60; // Max duration for Vercel execution
+export const maxDuration = 60; // Max timeout extend karta hai Vercel par
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
 
     if (!prompt) {
       return NextResponse.json(
-        { error: "Prompt is required" },
+        { error: "Prompt likhna zaroori hai" },
         { status: 400 }
       );
     }
@@ -21,21 +21,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Direct Inference call to Hugging Face MusicGen
+    // Direct call with retry parameter
     const response = await fetch(
       "https://api-inference.huggingface.co/models/facebook/musicgen-small",
       {
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          "x-wait-for-model": "true",
-          "use_cache": "false"
+          "x-wait-for-model": "true"
         },
         method: "POST",
         body: JSON.stringify({
           inputs: prompt,
           parameters: {
-            max_new_tokens: 256 // Generation duration control for faster response
+            max_new_tokens: 256 // Fast audio generation ke liye
           }
         }),
       }
@@ -43,13 +42,6 @@ export async function POST(req: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      // Handle model loading state explicitly
-      if (response.status === 503) {
-        return NextResponse.json(
-          { error: "Model load ho raha hai, 15 sec baad 'Generate' dabaein." },
-          { status: 503 }
-        );
-      }
       return NextResponse.json(
         { error: `API Error: ${errorText}` },
         { status: response.status }
@@ -63,7 +55,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ audioUrl });
   } catch (error: any) {
     return NextResponse.json(
-      { error: error.message || "Generation timeout" },
+      { error: "Network timeout. Kripya 10 second baad dubara 'Generate' dabayein." },
       { status: 500 }
     );
   }
