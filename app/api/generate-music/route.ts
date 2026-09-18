@@ -14,18 +14,19 @@ export async function POST(req: NextRequest) {
     const apiKey = process.env.HUGGINGFACE_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: "HUGGINGFACE_API_KEY Missing" },
+        { error: "HUGGINGFACE_API_KEY Missing in Vercel" },
         { status: 500 }
       );
     }
 
-    // Hugging Face router endpoint for faster response
+    // Direct Standard Inference Endpoint (Supported for MusicGen)
     const response = await fetch(
-      "https://router.huggingface.co/hf-inference/v1/models/facebook/musicgen-small",
+      "https://api-inference.huggingface.co/models/facebook/musicgen-small",
       {
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
+          "x-wait-for-model": "true",
         },
         method: "POST",
         body: JSON.stringify({ inputs: prompt }),
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ audioUrl });
   } catch (error: any) {
     return NextResponse.json(
-      { error: "Hugging Face model load ho raha hai. Dubara 'Generate' dabayein." },
+      { error: "Model warm-up ho raha hai, 10 second baad dubara try karein." },
       { status: 500 }
     );
   }
