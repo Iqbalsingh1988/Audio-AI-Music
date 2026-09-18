@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
 
     if (!prompt) {
       return NextResponse.json(
-        { error: "Prompt required hai" },
+        { error: "Prompt likhna zaroori hai" },
         { status: 400 }
       );
     }
@@ -14,19 +14,18 @@ export async function POST(req: NextRequest) {
     const apiKey = process.env.HUGGINGFACE_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: "HUGGINGFACE_API_KEY missing hai Vercel environment variables mein" },
+        { error: "HUGGINGFACE_API_KEY Missing" },
         { status: 500 }
       );
     }
 
-    // Direct Hugging Face Inference API call with retry support
+    // Hugging Face router endpoint for faster response
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/facebook/musicgen-small",
+      "https://router.huggingface.co/hf-inference/v1/models/facebook/musicgen-small",
       {
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          "x-wait-for-model": "true" // Model ko load hone tak wait karwayega
         },
         method: "POST",
         body: JSON.stringify({ inputs: prompt }),
@@ -48,7 +47,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ audioUrl });
   } catch (error: any) {
     return NextResponse.json(
-      { error: "Server connection failed. Kripya 10 second baad dubara try karein." },
+      { error: "Hugging Face model load ho raha hai. Dubara 'Generate' dabayein." },
       { status: 500 }
     );
   }
