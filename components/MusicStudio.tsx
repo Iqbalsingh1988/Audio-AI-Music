@@ -13,7 +13,7 @@ export default function MusicStudio() {
 
   const handleGenerate = async () => {
     if (!prompt) {
-      alert("कृपया कोई Prompt दर्ज करें!");
+      alert("Kripya koi Prompt darj karein!");
       return;
     }
 
@@ -21,22 +21,45 @@ export default function MusicStudio() {
     setAudioUrl(null);
 
     try {
-      const response = await fetch('/api/generate-music', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, lyrics, genre, duration }),
-      });
+      const apiKey = process.env.NEXT_PUBLIC_HUGGINGFACE_API_KEY;
 
-      const data = await response.json();
-
-      if (data.audioUrl) {
-        setAudioUrl(data.audioUrl);
-      } else {
-        alert("Audio generate करने में दिक्कत आई: " + (data.error || "API Key check करें"));
+      if (!apiKey) {
+        alert("NEXT_PUBLIC_HUGGINGFACE_API_KEY missing hai Vercel environment variables mein!");
+        setIsGenerating(false);
+        return;
       }
-    } catch (err) {
+
+      // Combining prompt and genre for best AI audio output
+      const fullPrompt = `${genre} style: ${prompt}`;
+
+      // Direct Hugging Face Client-side API Call to bypass Vercel 10s Timeout
+      const response = await fetch(
+        "https://api-inference.huggingface.co/models/facebook/musicgen-small",
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+            "x-wait-for-model": "true",
+          },
+          method: "POST",
+          body: JSON.stringify({ inputs: fullPrompt }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        alert("Audio generate karne mein dikkat aayi: " + errorText);
+        return;
+      }
+
+      const audioBuffer = await response.arrayBuffer();
+      const base64Audio = Buffer.from(audioBuffer).toString("base64");
+      const generatedAudioUrl = `data:audio/flac;base64,${base64Audio}`;
+
+      setAudioUrl(generatedAudioUrl);
+    } catch (err: any) {
       console.error(err);
-      alert("Server Connection Error!");
+      alert("Network Error! Please try again: " + (err.message || err));
     } finally {
       setIsGenerating(false);
     }
@@ -121,7 +144,7 @@ export default function MusicStudio() {
         <button 
           onClick={handleGenerate}
           disabled={isGenerating}
-          className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+          className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
         >
           {isGenerating ? "✨ Generating Track (1-2 Mins)..." : "⚡ Generate High-Quality Song"}
         </button>
@@ -130,12 +153,10 @@ export default function MusicStudio() {
         {audioUrl && (
           <div className="mt-8 bg-slate-950 p-6 rounded-2xl border border-indigo-500/40">
             <h3 className="text-sm font-semibold text-slate-300 mb-4">🎶 Generated Track Preview</h3>
-            <audio ref={audioRef} controls src={audioUrl} className="w-full mb-4" />
+            <audio ref={audioRef} controls src={audioUrl} autoPlay className="w-full mb-4" />
             <a 
               href={audioUrl} 
-              download="ai-song.mp3" 
-              target="_blank"
-              rel="noreferrer"
+              download="ai-song.flac" 
               className="inline-block text-xs font-semibold px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-200"
             >
               ⬇️ Download Track
