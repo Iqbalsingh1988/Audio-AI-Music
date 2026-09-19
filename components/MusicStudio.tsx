@@ -21,45 +21,22 @@ export default function MusicStudio() {
     setAudioUrl(null);
 
     try {
-      const apiKey = process.env.NEXT_PUBLIC_HUGGINGFACE_API_KEY;
+      const response = await fetch('/api/generate-music', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, lyrics, genre, duration }),
+      });
 
-      if (!apiKey) {
-        alert("NEXT_PUBLIC_HUGGINGFACE_API_KEY missing hai Vercel environment variables mein!");
-        setIsGenerating(false);
-        return;
+      const data = await response.json();
+
+      if (data.audioUrl) {
+        setAudioUrl(data.audioUrl);
+      } else {
+        alert("Audio generate karne mein dikkat aayi: " + (data.error || "Model load hone mein time lag raha hai. Dobara Generate dabayein."));
       }
-
-      // Combining prompt and genre for best AI audio output
-      const fullPrompt = `${genre} style: ${prompt}`;
-
-      // Direct Hugging Face Client-side API Call to bypass Vercel 10s Timeout
-      const response = await fetch(
-        "https://api-inference.huggingface.co/models/facebook/musicgen-small",
-        {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-            "x-wait-for-model": "true",
-          },
-          method: "POST",
-          body: JSON.stringify({ inputs: fullPrompt }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        alert("Audio generate karne mein dikkat aayi: " + errorText);
-        return;
-      }
-
-      const audioBuffer = await response.arrayBuffer();
-      const base64Audio = Buffer.from(audioBuffer).toString("base64");
-      const generatedAudioUrl = `data:audio/flac;base64,${base64Audio}`;
-
-      setAudioUrl(generatedAudioUrl);
     } catch (err: any) {
       console.error(err);
-      alert("Network Error! Please try again: " + (err.message || err));
+      alert("Server Connection Error! Kripya 10 sec baad dobara try karein.");
     } finally {
       setIsGenerating(false);
     }
